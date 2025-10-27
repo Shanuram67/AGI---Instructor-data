@@ -37,9 +37,8 @@ def run_automation(steps: list):
                 print(" -> Clicked")
                 
             elif action == 'write':
-                # Type the specified text
-                pyautogui.write(step['text'], interval=0.1)
-                print(f" -> Wrote: '{step['text'][:20]}...'")
+                print(f"(Simulated typing): {step['text']}")
+                
                 
             elif action == 'press':
                 # Press a single key (e.g., 'enter', 'esc', 'ctrl')

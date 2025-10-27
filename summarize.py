@@ -31,7 +31,7 @@ def load_events(path=INPUT_FILE):
         return [json.loads(line) for line in f if line.strip()]
 
 # =============================================================================
-# 3. ANALYSIS AND SUMMARIZATION LOGIC
+# 3. ANALYSIS AND SUMMARIZATION LOGIC (Indentation Corrected)
 # =============================================================================
 def summarize(events):
     """
@@ -42,28 +42,40 @@ def summarize(events):
     examples = defaultdict(list)
     
     for e in events:
-        # Iterate over the list of inferred events within the record 'e'
-        for ie in e.get("inferred_events", []):
-            # The original code assumes 'ie' is a dictionary with a 'type' key.
-            # Assuming the data structure is correct based on the usage in the snippet:
-            event_type = ie.get("type")
+        # Type check for robustness (must be inside the loop)
+        if not isinstance(e, dict):
+            continue
             
+        inferred = e.get("inferred_events", [])
+        
+        # Type check for robustness (must be inside the loop)
+        if not isinstance(inferred, list):
+            continue
+            
+        # Iterate over the list of inferred events within the record 'e'
+        for ie in inferred:
+            # Type check for robustness (must be inside the inner loop)
+            if not isinstance(ie, dict):
+                continue
+                
+            event_type = ie.get("type")
+                
             if event_type: # Only process if 'type' is present
                 counter[event_type] += 1
-                
+                    
                 # Collect a few examples
                 if len(examples[event_type]) < 3:
                     examples[event_type].append({
                         "ts": e.get("ts"), 
                         "path": e.get("path"), 
-                        "ocr": e.get("ocr_text", "")[:200] # Use .get with default for robustness
+                        "ocr": e.get("ocr_text", "")[:200]
                     })
-                    
-    # Format the final list of workflow suggestions
+                        
+    # Format the final list of workflow suggestions (outside the loop)
     workflows = []
     for k, cnt in counter.most_common():
         workflows.append({
-            "workflow_type": KEYWORDS_TO_WORKFLOW.get(k, k), # Use friendly name if available
+            "workflow_type": KEYWORDS_TO_WORKFLOW.get(k, k),
             "detected_keyword": k,
             "occurrences": cnt,
             "examples": examples[k]

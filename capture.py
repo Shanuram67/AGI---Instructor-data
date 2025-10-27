@@ -11,7 +11,8 @@ import numpy as np
 from mss import mss
 from PIL import Image
 import sounddevice as sd
-import soundfile as sf
+# Removing scipy.io.wavfile.write and standardizing on soundfile (sf)
+import soundfile as sf 
 
 # =============================================================================
 # 2. CONFIGURATION & DIRECTORY SETUP
@@ -89,11 +90,15 @@ class ScreenCapturer(threading.Thread):
 
 
 class AudioCapturer(threading.Thread):
-    def __init__(self, out_queue: Queue, duration=3, samplerate=16000):
+    """
+    Captures short audio clips in the background and saves them to WAV files.
+    Pushes their paths into the same queue as ScreenCapturer.
+    """
+    def __init__(self, out_queue: Queue, duration=3.0, samplerate=16000):
         super().__init__(daemon=True)
-        self.out_queue = out_queue
         self.duration = duration
         self.samplerate = samplerate
+        self.out_queue = out_queue
         self.running = threading.Event()
 
     def start_capture(self):
@@ -102,38 +107,36 @@ class AudioCapturer(threading.Thread):
             self.start()
 
     def stop_capture(self):
-        # To stop sounddevice recording, you'd typically need a more complex stream
-        # setup, but for this simple polling loop, clearing the event is sufficient.
         self.running.clear()
 
     def run(self):
-        print("Audio capture thread started...")
         while True:
             if self.running.is_set():
                 try:
-                    # Record a short clip
                     ts = datetime.utcnow().isoformat() + "Z"
                     filename = os.path.join(AUDIO_DIR, f"audio_{int(time.time())}.wav")
+
+                    print(f"[AUDIO] Recording {self.duration}s clip...")
                     
-                    # Record audio
-                    audio = sd.rec(int(self.duration * self.samplerate),
-                                   samplerate=self.samplerate,
-                                   channels=1, dtype='float32')
-                    sd.wait() # Wait until recording is finished
-                    
-                    # Write to file
-                    sf.write(filename, audio, self.samplerate)
+                    # Record audio data using int16 format
+                    audio_data = sd.rec(
+                        int(self.duration * self.samplerate),
+                        samplerate=self.samplerate,
+                        channels=1, 
+                        dtype="int16" # Ensure dtype is specified for np array
+                    )
+                    sd.wait()
+
+                    # FIX: Using soundfile.sf.write for consistent and robust WAV writing
+                    sf.write(filename, audio_data, self.samplerate)
                     
                     self.out_queue.put({"type": "audio", "ts": ts, "path": filename})
-                    print(f"[AUDIO] Saved chunk: {filename}")
-
+                
                 except Exception as e:
                     print(f"Audio capture error: {e}")
-                    # Introduce a pause after an error to prevent a rapid loop
-                    time.sleep(1)
+                    time.sleep(1) # Sleep to prevent rapid loop on error
 
-                # Wait for the specified duration before the next capture
-                time.sleep(self.duration)
+                time.sleep(self.duration) # Wait for the next scheduled capture
             else:
                 break
 
